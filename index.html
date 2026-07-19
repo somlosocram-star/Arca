@@ -186,7 +186,17 @@ body.in-game .ver, body.hide-controls .ver { display: none; }
 .turn-banner { color: var(--text); }
 body.duo #btn-ask, body.duo #btn-accuse, body.duo #turn-banner { display: none; }
 body.solo #btn-restart { display: none; }
-body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse { opacity: .3; pointer-events: none; }
+body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse, body.solo.waiting #btn-pass { opacity: .3; pointer-events: none; }
+#btn-pass { display: none; }
+body.solo.marking #btn-pass { display: block; }
+body.solo.marking #btn-ask { display: none; }
+
+.mini-secret {
+  font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); background: none; border: none;
+  cursor: pointer; padding: .4rem; text-decoration: underline; text-underline-offset: 3px;
+}
+.mini-secret.revealed { text-decoration: none; color: var(--text); font-weight: 700; letter-spacing: .2em; }
 
 /* ---------- Paneles ---------- */
 .panel {
@@ -279,6 +289,7 @@ body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse { opacity: .3; pointer
     <button class="btn btn-secondary" id="btn-see" style="padding:.5rem .8rem;font-size:.55rem">ver secreto</button>
     <button class="btn btn-secondary" id="btn-ask" style="padding:.5rem .8rem;font-size:.55rem">preguntar</button>
     <button class="btn btn-secondary" id="btn-accuse" style="padding:.5rem .8rem;font-size:.55rem">acusar</button>
+    <button class="btn" id="btn-pass" style="padding:.5rem .8rem;font-size:.55rem">pasar turno</button>
     <button class="btn btn-secondary" id="btn-restart" style="padding:.5rem .8rem;font-size:.55rem">nueva</button>
   </div>
 </div>
@@ -332,6 +343,7 @@ body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse { opacity: .3; pointer
   <div class="sheet">
     <div class="sheet-title">iris pregunta</div>
     <div class="big-q" id="aiask-q">—</div>
+    <div style="text-align:center"><button class="mini-secret" id="btn-mini">recordar mi animal</button></div>
     <div class="warn" id="aiask-warn"></div>
     <div class="sheet-foot">
       <button class="btn" id="btn-yes">sí</button>
@@ -360,7 +372,7 @@ body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse { opacity: .3; pointer
   </div>
 </div>
 
-<div class="ver mono">v0.3</div>
+<div class="ver mono">v0.4</div>
 
 <script>
 'use strict';
@@ -436,6 +448,7 @@ function loadState() {
     if (!s || typeof s.secret !== 'number' || !Array.isArray(s.down) || s.down.length !== 24) return null;
     if (!s.mode) s.mode = 'duo';
     if (s.mode === 'solo' && (!Array.isArray(s.aiCands) || typeof s.aiSecret !== 'number')) return null;
+    if (s.mode === 'solo' && !s.phase) s.phase = 'preguntar';
     return s;
   } catch (e) { return null; }
 }
@@ -456,6 +469,7 @@ function newGame(mode, level) {
     state.asked = new Array(12).fill(false);
     state.aiAsked = new Array(12).fill(false);
     state.turn = 'me';
+    state.phase = 'preguntar';
   }
   saveState();
   renderGrid();
@@ -555,13 +569,17 @@ function setWaiting(w) { document.body.classList.toggle('waiting', !!w); }
 
 function refreshTurn() {
   if (state.mode !== 'solo' || state.over) return;
-  $('turn-banner').textContent = state.turn === 'me' ? 'tu turno' : 'turno de iris';
+  const marcando = state.turn === 'me' && state.phase === 'marcar';
+  document.body.classList.toggle('marking', marcando);
+  $('turn-banner').textContent =
+    state.turn !== 'me' ? 'turno de iris' :
+    marcando ? 'abate y pasa turno' : 'tu turno';
   setWaiting(state.turn !== 'me');
 }
 
 /* --- yo pregunto --- */
 $('btn-ask').addEventListener('click', () => {
-  if (state.mode !== 'solo' || state.turn !== 'me') return;
+  if (state.mode !== 'solo' || state.turn !== 'me' || state.phase !== 'preguntar') return;
   $('q-list').innerHTML = PREGUNTAS.map((q, i) =>
     `<button class="list-item${state.asked[i] ? ' used' : ''}" data-q="${i}">${q}</button>`).join('');
   $('panel-ask').classList.add('visible');
@@ -582,10 +600,18 @@ $('q-list').addEventListener('click', e => {
 
 $('btn-answer-ok').addEventListener('click', () => {
   $('panel-answer').classList.remove('visible');
-  state.turn = 'ai';
+  state.phase = 'marcar';
   saveState();
   refreshTurn();
-  setTimeout(aiTurn, 800);
+});
+
+$('btn-pass').addEventListener('click', () => {
+  if (state.mode !== 'solo' || state.turn !== 'me') return;
+  state.turn = 'ai';
+  state.phase = 'preguntar';
+  saveState();
+  refreshTurn();
+  setTimeout(aiTurn, 700);
 });
 
 /* --- turno de la IA --- */
@@ -627,6 +653,7 @@ function aiTurn() {
   pendingQ = q;
   $('aiask-q').textContent = PREGUNTAS[q];
   $('aiask-warn').textContent = '';
+  resetMini();
   $('panel-aiask').classList.add('visible');
 }
 
@@ -640,6 +667,7 @@ function answerAi(yes) {
   state.aiCands = state.aiCands.filter(i => !!MATRIZ[i][pendingQ] === real);
   $('panel-aiask').classList.remove('visible');
   state.turn = 'me';
+  state.phase = 'preguntar';
   saveState();
   refreshTurn();
 }
@@ -652,6 +680,19 @@ function aiAccuse() {
   const acierta = pick === state.secret;
   endGame(acierta ? 'ai' : 'me', 'IRIS acusa a ' + ANIMALES[pick] + '.');
 }
+
+/* --- recordatorio del animal propio --- */
+function resetMini() {
+  const b = $('btn-mini');
+  b.classList.remove('revealed');
+  b.textContent = 'recordar mi animal';
+}
+$('btn-mini').addEventListener('click', () => {
+  const b = $('btn-mini');
+  if (b.classList.contains('revealed')) { resetMini(); return; }
+  b.classList.add('revealed');
+  b.textContent = ANIMALES[state.secret];
+});
 
 /* --- yo acuso --- */
 $('btn-accuse').addEventListener('click', () => {

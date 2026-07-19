@@ -1,4 +1,4 @@
-const CACHE = 'arca-v3';
+const CACHE = 'arca-v4';
 const ASSETS = [
   './',
   './index.html',

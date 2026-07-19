@@ -106,28 +106,42 @@ body::after {
   font-family: 'IBM Plex Mono', monospace; font-size: .5rem; letter-spacing: .2em; color: var(--muted); opacity: .55; z-index: 3; }
 
 /* ---------- Controles flotantes ---------- */
-.corner { position: fixed; top: max(.6rem, env(safe-area-inset-top)); z-index: 20; display: flex; gap: .4rem; }
-.corner.right { right: .7rem; }
-.icon-btn {
-  width: 34px; height: 34px; border: 1px solid var(--line); background: var(--panel);
-  border-radius: 3px; color: var(--muted); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'IBM Plex Mono', monospace; font-size: .62rem; font-weight: 700;
+#theme-toggle {
+  position: fixed; top: max(1rem, env(safe-area-inset-top)); right: 1.2rem; z-index: 500;
+  width: 56px; height: 30px; border-radius: 15px; border: 1px solid var(--line);
+  background: var(--panel); cursor: pointer; outline: none; padding: 0;
+  display: flex; align-items: center; transition: background .3s, border-color .3s, opacity .3s;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
 }
-.icon-btn:active { opacity: .7; }
+#theme-toggle .knob {
+  position: absolute; width: 24px; height: 24px; border-radius: 50%; left: 2px;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #cfcfcf 70%, #9a9a9a);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.5);
+  transition: transform .3s cubic-bezier(.2,.9,.3,1);
+  display: flex; align-items: center; justify-content: center; font-size: .7rem; line-height: 1;
+}
+#theme-toggle .knob::after { content: '\263E'; color: #1a1a1a; }
+body.light #theme-toggle .knob { transform: translateX(26px); background: radial-gradient(circle at 35% 30%, #3a3a3a, #1a1a1a 70%, #000); }
+body.light #theme-toggle .knob::after { content: '\2600'; color: #f3f2ee; }
+body.light #theme-toggle { border-color: var(--accent); }
+body.in-game #theme-toggle { opacity: .25; }
+body.in-game #theme-toggle:active { opacity: .9; }
+body.hide-controls #theme-toggle { display: none; }
+body.in-game .ver, body.hide-controls .ver { display: none; }
 
 /* ---------- Pantalla de juego ---------- */
 #screen-game { justify-content: flex-start; padding: 0; }
-.game-head {
-  flex: 0 0 auto; width: 100%;
-  padding: max(.7rem, env(safe-area-inset-top)) .7rem .5rem;
+.game-bar {
+  flex: 0 0 auto; width: 100%; max-width: 480px; margin: 0 auto;
+  padding: .5rem .7rem max(.6rem, env(safe-area-inset-bottom));
   display: flex; align-items: center; justify-content: space-between; gap: .5rem;
 }
 .head-label { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .26em; text-transform: uppercase; color: var(--muted); }
 .grid {
   flex: 1 1 auto; width: 100%; max-width: 480px; margin: 0 auto;
   display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(6, 1fr);
-  gap: .4rem; padding: 0 .5rem max(.7rem, env(safe-area-inset-bottom));
+  gap: .4rem;
+  padding: calc(max(1rem, env(safe-area-inset-top)) + 38px) .5rem .2rem;
   min-height: 0;
 }
 
@@ -138,13 +152,12 @@ body::after {
   position: absolute; inset: 0; border: 1px solid var(--line); border-radius: 4px;
   background: var(--panel);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .18rem;
-  backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  transition: transform .34s cubic-bezier(.4,0,.2,1);
+  transition: transform .34s cubic-bezier(.4,0,.2,1), opacity 0s linear .17s;
 }
-.face-up   { transform: rotateY(0deg); }
-.face-down { transform: rotateY(180deg); background: transparent; border-style: dashed; }
-.tile.down .face-up   { transform: rotateY(-180deg); }
-.tile.down .face-down { transform: rotateY(0deg); }
+.face-up   { transform: rotateY(0deg);   opacity: 1; }
+.face-down { transform: rotateY(180deg); opacity: 0; background: transparent; border-style: dashed; }
+.tile.down .face-up   { transform: rotateY(-180deg); opacity: 0; }
+.tile.down .face-down { transform: rotateY(0deg);    opacity: 1; }
 
 .t-seal { position: relative; width: 42%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
 .t-seal .t-ring { position: absolute; inset: 0; border: 1px solid var(--line); border-radius: 50%; }
@@ -155,6 +168,8 @@ body::after {
   padding: 0 .1rem; word-break: break-word;
 }
 .face-down .t-glyph, .face-down .t-name { color: var(--down); }
+.tile.down .face-down { box-shadow: none; }
+.tile.down { opacity: .55; }
 .face-down .t-ring { border-color: var(--down); border-style: dashed; }
 
 /* ---------- Secreto ---------- */
@@ -182,9 +197,7 @@ body::after {
   </div>
 </div>
 
-<div class="corner right" id="corner-top">
-  <button class="icon-btn" id="theme-btn" aria-label="tema">◐</button>
-</div>
+<button id="theme-toggle" aria-label="Cambiar tema"><span class="knob"></span></button>
 
 <!-- HOME -->
 <div id="screen-home" class="screen visible">
@@ -210,12 +223,12 @@ body::after {
 
 <!-- JUEGO -->
 <div id="screen-game" class="screen">
-  <div class="game-head">
+  <div class="grid" id="grid"></div>
+  <div class="game-bar">
     <button class="btn btn-secondary" id="btn-see" style="padding:.5rem .8rem;font-size:.55rem">ver secreto</button>
     <div class="head-label" id="head-count">24 en pie</div>
     <button class="btn btn-secondary" id="btn-restart" style="padding:.5rem .8rem;font-size:.55rem">nueva</button>
   </div>
-  <div class="grid" id="grid"></div>
 </div>
 
 <!-- CONFIRMACIÓN -->
@@ -229,7 +242,7 @@ body::after {
   </div>
 </div>
 
-<div class="ver mono">v0.1</div>
+<div class="ver mono">v0.2</div>
 
 <script>
 'use strict';
@@ -256,7 +269,7 @@ function applyTheme(light) {
   try { saved = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) {}
   applyTheme(saved === 'light');
 })();
-$('theme-btn').addEventListener('click', () => applyTheme(!document.body.classList.contains('light')));
+$('theme-toggle').addEventListener('click', () => applyTheme(!document.body.classList.contains('light')));
 
 /* ---------- Anillo de puntos del sello ---------- */
 function buildRing(svg) {
@@ -298,7 +311,8 @@ function newGame() {
 function show(id) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('visible'));
   $(id).classList.add('visible');
-  $('corner-top').style.display = (id === 'screen-secret') ? 'none' : 'flex';
+  document.body.classList.toggle('hide-controls', id === 'screen-secret');
+  document.body.classList.toggle('in-game', id === 'screen-game');
 }
 
 function showSecret() {

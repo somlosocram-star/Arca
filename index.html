@@ -191,6 +191,17 @@ body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse, body.solo.waiting #bt
 body.solo.marking #btn-pass { display: block; }
 body.solo.marking #btn-ask { display: none; }
 
+.rac-label { display: none; }
+body.trav .rac-label { display: inline; }
+.cost {
+  float: right; font-weight: 700; letter-spacing: .18em; color: var(--muted);
+}
+.list-item.poor { opacity: .35; pointer-events: none; }
+.sheet-note {
+  font-family: 'IBM Plex Mono', monospace; font-size: .5rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); text-align: center; margin-top: .7rem;
+}
+
 .mini-secret {
   font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .16em;
   text-transform: uppercase; color: var(--muted); background: none; border: none;
@@ -267,6 +278,7 @@ body.solo.marking #btn-ask { display: none; }
   <div class="btn-row">
     <button class="btn" id="btn-duo">Dos jugadores</button>
     <button class="btn btn-secondary" id="btn-solo">Contra la IA</button>
+    <button class="btn btn-secondary" id="btn-trav">Travesía</button>
     <button class="btn btn-secondary" id="btn-resume" style="display:none">Continuar</button>
   </div>
 </div>
@@ -283,7 +295,7 @@ body.solo.marking #btn-ask { display: none; }
   <div class="grid" id="grid"></div>
   <div class="bar-info">
     <span class="head-label turn-banner" id="turn-banner"></span>
-    <span class="head-label" id="head-count">24 en pie</span>
+    <span class="head-label"><span class="rac-label" id="rac-label"></span><span id="head-count">24 en pie</span></span>
   </div>
   <div class="game-bar">
     <button class="btn btn-secondary" id="btn-see" style="padding:.5rem .8rem;font-size:.55rem">ver secreto</button>
@@ -324,7 +336,11 @@ body.solo.marking #btn-ask { display: none; }
   <div class="sheet">
     <div class="sheet-title">tu pregunta</div>
     <div class="list" id="q-list"></div>
-    <div class="sheet-foot"><button class="btn btn-secondary" id="btn-ask-cancel">cerrar</button></div>
+    <div class="sheet-foot">
+      <button class="btn btn-secondary" id="btn-dump" style="display:none">tirar la mano</button>
+      <button class="btn btn-secondary" id="btn-ask-cancel">cerrar</button>
+    </div>
+    <div class="sheet-note" id="ask-note"></div>
   </div>
 </div>
 
@@ -372,7 +388,7 @@ body.solo.marking #btn-ask { display: none; }
   </div>
 </div>
 
-<div class="ver mono">v0.4</div>
+<div class="ver mono">v0.5</div>
 
 <script>
 'use strict';
@@ -401,6 +417,23 @@ const PREGUNTAS = [
   '¿Es un animal doméstico?', '¿Come carne?', '¿Pone huevos?',
   '¿Vive en grupo?', '¿Es más grande que una persona?'
 ];
+
+// El coste de una pregunta sale de su propio reparto: cuanto más parte
+// el tablero, más cara. 1 = específica, 3 = amplia.
+const COSTES = PREGUNTAS.map((_, q) => {
+  const k = MATRIZ.reduce((a, f) => a + f[q], 0);
+  const m = Math.min(k, MATRIZ.length - k);
+  return m <= 5 ? 1 : (m <= 8 ? 2 : 3);
+});
+const DESPENSA = 9;
+
+function baraja(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
 
 const $ = id => document.getElementById(id);
 const LS_THEME = 'arca_theme';
@@ -447,8 +480,10 @@ function loadState() {
     const s = JSON.parse(raw);
     if (!s || typeof s.secret !== 'number' || !Array.isArray(s.down) || s.down.length !== 24) return null;
     if (!s.mode) s.mode = 'duo';
-    if (s.mode === 'solo' && (!Array.isArray(s.aiCands) || typeof s.aiSecret !== 'number')) return null;
-    if (s.mode === 'solo' && !s.phase) s.phase = 'preguntar';
+    const conIA = s.mode === 'solo' || s.mode === 'travesia';
+    if (conIA && (!Array.isArray(s.aiCands) || typeof s.aiSecret !== 'number')) return null;
+    if (conIA && !s.phase) s.phase = 'preguntar';
+    if (s.mode === 'travesia' && (!Array.isArray(s.hand) || typeof s.rac !== 'number')) return null;
     return s;
   } catch (e) { return null; }
 }
@@ -460,7 +495,7 @@ function newGame(mode, level) {
     secret: mine,
     down: new Array(24).fill(false)
   };
-  if (mode === 'solo') {
+  if (mode === 'solo' || mode === 'travesia') {
     let ai = Math.floor(Math.random() * 24);
     while (ai === mine) ai = Math.floor(Math.random() * 24);
     state.level = level;
@@ -470,6 +505,14 @@ function newGame(mode, level) {
     state.aiAsked = new Array(12).fill(false);
     state.turn = 'me';
     state.phase = 'preguntar';
+  }
+  if (mode === 'travesia') {
+    const d1 = baraja(PREGUNTAS.map((_, i) => i));
+    const d2 = baraja(PREGUNTAS.map((_, i) => i));
+    state.rac = DESPENSA;      state.aiRac = DESPENSA;
+    state.hand = d1.splice(0, 4);  state.deck = d1;  state.disc = [];
+    state.aiHand = d2.splice(0, 4); state.aiDeck = d2; state.aiDisc = [];
+    state.lastYes = false;
   }
   saveState();
   renderGrid();
@@ -483,8 +526,10 @@ function show(id) {
   document.body.classList.toggle('hide-controls', id === 'screen-secret');
   document.body.classList.toggle('in-game', id === 'screen-game');
   if (state) {
-    document.body.classList.toggle('solo', state.mode === 'solo');
-    document.body.classList.toggle('duo', state.mode !== 'solo');
+    const conIA = state.mode === 'solo' || state.mode === 'travesia';
+    document.body.classList.toggle('solo', conIA);
+    document.body.classList.toggle('duo', !conIA);
+    document.body.classList.toggle('trav', state.mode === 'travesia');
   }
 }
 
@@ -494,7 +539,7 @@ function showSecret() {
 }
 $('screen-secret').addEventListener('click', () => {
   show('screen-game');
-  if (state.mode === 'solo') refreshTurn();
+  if (state.mode !== 'duo') refreshTurn();
 });
 
 /* ---------- Rejilla ---------- */
@@ -567,22 +612,75 @@ function setDown(i, down) {
 /* ---------- Modo IA ---------- */
 function setWaiting(w) { document.body.classList.toggle('waiting', !!w); }
 
+function robar(quien) {
+  const H = quien === 'me' ? 'hand' : 'aiHand';
+  const D = quien === 'me' ? 'deck' : 'aiDeck';
+  const X = quien === 'me' ? 'disc' : 'aiDisc';
+  if (!state[D].length) { state[D] = baraja(state[X]); state[X] = []; }
+  if (state[D].length) state[H].push(state[D].pop());
+}
+function gastar(quien, q) {
+  const H = quien === 'me' ? 'hand' : 'aiHand';
+  const X = quien === 'me' ? 'disc' : 'aiDisc';
+  const R = quien === 'me' ? 'rac' : 'aiRac';
+  state[H].splice(state[H].indexOf(q), 1);
+  state[X].push(q);
+  state[R] -= COSTES[q];
+  robar(quien);
+}
+function partePor(q, cands) {
+  let y = 0;
+  for (const i of cands) if (MATRIZ[i][q]) y++;
+  return { si: y, no: cands.length - y };
+}
+
 function refreshTurn() {
-  if (state.mode !== 'solo' || state.over) return;
+  if (state.mode === 'duo' || state.over) return;
+  if (state.mode === 'travesia') {
+    $('rac-label').textContent = 'raciones ' + state.rac + ' · iris ' + state.aiRac + ' · ';
+  }
   const marcando = state.turn === 'me' && state.phase === 'marcar';
   document.body.classList.toggle('marking', marcando);
   $('turn-banner').textContent =
     state.turn !== 'me' ? 'turno de iris' :
-    marcando ? 'abate y pasa turno' : 'tu turno';
+    marcando ? (state.mode === 'travesia' && state.lastYes ? 'abate y sigue' : 'abate y pasa turno') :
+    'tu turno';
+  if (state.mode === 'travesia' && marcando) {
+    $('btn-pass').textContent = state.lastYes ? 'seguir' : 'pasar turno';
+  } else {
+    $('btn-pass').textContent = 'pasar turno';
+  }
   setWaiting(state.turn !== 'me');
 }
 
 /* --- yo pregunto --- */
 $('btn-ask').addEventListener('click', () => {
-  if (state.mode !== 'solo' || state.turn !== 'me' || state.phase !== 'preguntar') return;
-  $('q-list').innerHTML = PREGUNTAS.map((q, i) =>
-    `<button class="list-item${state.asked[i] ? ' used' : ''}" data-q="${i}">${q}</button>`).join('');
+  if (state.mode === 'duo' || state.turn !== 'me' || state.phase !== 'preguntar') return;
+  if (state.mode === 'travesia') {
+    $('q-list').innerHTML = state.hand.map(i =>
+      `<button class="list-item${COSTES[i] > state.rac ? ' poor' : ''}" data-q="${i}">${PREGUNTAS[i]}<span class="cost">${'·'.repeat(COSTES[i])} ${COSTES[i]}</span></button>`).join('');
+    const puede = state.hand.some(i => COSTES[i] <= state.rac);
+    $('btn-dump').style.display = puede ? 'none' : '';
+    $('ask-note').textContent = puede ? 'te quedan ' + state.rac + ' raciones'
+                                      : 'sin raciones para nada de la mano';
+  } else {
+    $('q-list').innerHTML = PREGUNTAS.map((q, i) =>
+      `<button class="list-item${state.asked[i] ? ' used' : ''}" data-q="${i}">${q}</button>`).join('');
+    $('btn-dump').style.display = 'none';
+    $('ask-note').textContent = '';
+  }
   $('panel-ask').classList.add('visible');
+});
+
+$('btn-dump').addEventListener('click', () => {
+  state.disc = state.disc.concat(state.hand);
+  state.hand = [];
+  for (let i = 0; i < 4; i++) robar('me');
+  $('panel-ask').classList.remove('visible');
+  state.turn = 'ai';
+  state.phase = 'preguntar';
+  saveState(); refreshTurn();
+  setTimeout(aiTurn, 700);
 });
 $('btn-ask-cancel').addEventListener('click', () => $('panel-ask').classList.remove('visible'));
 
@@ -590,7 +688,13 @@ $('q-list').addEventListener('click', e => {
   const b = e.target.closest('.list-item');
   if (!b) return;
   const q = +b.dataset.q;
-  state.asked[q] = true;
+  if (state.mode === 'travesia') {
+    if (COSTES[q] > state.rac) return;
+    gastar('me', q);
+    state.lastYes = !!MATRIZ[state.aiSecret][q];
+  } else {
+    state.asked[q] = true;
+  }
   saveState();
   $('panel-ask').classList.remove('visible');
   $('answer-q').textContent = PREGUNTAS[q];
@@ -606,7 +710,12 @@ $('btn-answer-ok').addEventListener('click', () => {
 });
 
 $('btn-pass').addEventListener('click', () => {
-  if (state.mode !== 'solo' || state.turn !== 'me') return;
+  if (state.mode === 'duo' || state.turn !== 'me') return;
+  if (state.mode === 'travesia' && state.lastYes) {
+    state.phase = 'preguntar';
+    saveState(); refreshTurn();
+    return;
+  }
   state.turn = 'ai';
   state.phase = 'preguntar';
   saveState();
@@ -643,13 +752,40 @@ function aiPickQuestion() {
 
 let pendingQ = -1;
 
+function aiPickCard() {
+  const c = state.aiCands;
+  const opts = [];
+  for (const q of state.aiHand) {
+    if (COSTES[q] > state.aiRac) continue;
+    const p = partePor(q, c);
+    if (!p.si || !p.no) continue;
+    opts.push({ q: q, gana: Math.min(p.si, p.no) / COSTES[q], peor: Math.max(p.si, p.no) });
+  }
+  if (!opts.length) return -1;
+  if (state.level === 'maestro') {
+    const max = Math.max.apply(null, opts.map(o => o.gana));
+    const best = opts.filter(o => o.gana === max);
+    return best[Math.floor(Math.random() * best.length)].q;
+  }
+  return opts[Math.floor(Math.random() * opts.length)].q;
+}
+
 function aiTurn() {
   if (state.over) return;
   const c = state.aiCands;
   const arriesga = state.level === 'aprendiz' && c.length <= 3 && Math.random() < 0.3;
   if (c.length <= 1 || arriesga) { aiAccuse(); return; }
-  const q = aiPickQuestion();
-  if (q < 0) { aiAccuse(); return; }
+  const q = state.mode === 'travesia' ? aiPickCard() : aiPickQuestion();
+  if (q < 0) {
+    if (state.mode !== 'travesia') { aiAccuse(); return; }
+    // Iris no puede jugar nada: tira la mano y pierde el turno
+    state.aiDisc = state.aiDisc.concat(state.aiHand);
+    state.aiHand = [];
+    for (let i = 0; i < 4; i++) robar('ai');
+    state.turn = 'me'; state.phase = 'preguntar';
+    saveState(); refreshTurn();
+    return;
+  }
   pendingQ = q;
   $('aiask-q').textContent = PREGUNTAS[q];
   $('aiask-warn').textContent = '';
@@ -663,9 +799,15 @@ function answerAi(yes) {
     $('aiask-warn').textContent = 'eso no cuadra con tu ficha';
     return;
   }
-  state.aiAsked[pendingQ] = true;
   state.aiCands = state.aiCands.filter(i => !!MATRIZ[i][pendingQ] === real);
   $('panel-aiask').classList.remove('visible');
+  if (state.mode === 'travesia') {
+    gastar('ai', pendingQ);
+    saveState(); refreshTurn();
+    if (real) { setTimeout(aiTurn, 800); return; }   // sigue si es sí
+  } else {
+    state.aiAsked[pendingQ] = true;
+  }
   state.turn = 'me';
   state.phase = 'preguntar';
   saveState();
@@ -722,18 +864,20 @@ function endGame(winner, detalle) {
     '.<br>El tuyo era ' + ANIMALES[state.secret] + '.';
   show('screen-end');
 }
-$('btn-again').addEventListener('click', () => newGame('solo', state.level));
+$('btn-again').addEventListener('click', () => newGame(state.mode, state.level));
 $('btn-home').addEventListener('click', () => { try { localStorage.removeItem(LS_STATE); } catch (e) {} state = null; $('btn-resume').style.display = 'none'; show('screen-home'); });
 
 /* ---------- Botones ---------- */
 $('btn-duo').addEventListener('click', () => newGame('duo'));
-$('btn-solo').addEventListener('click', () => show('screen-level'));
-$('btn-lv-1').addEventListener('click', () => newGame('solo', 'aprendiz'));
-$('btn-lv-2').addEventListener('click', () => newGame('solo', 'maestro'));
+let modoPendiente = 'solo';
+$('btn-solo').addEventListener('click', () => { modoPendiente = 'solo'; show('screen-level'); });
+$('btn-trav').addEventListener('click', () => { modoPendiente = 'travesia'; show('screen-level'); });
+$('btn-lv-1').addEventListener('click', () => newGame(modoPendiente, 'aprendiz'));
+$('btn-lv-2').addEventListener('click', () => newGame(modoPendiente, 'maestro'));
 $('btn-lv-back').addEventListener('click', () => show('screen-home'));
 $('btn-resume').addEventListener('click', () => {
   renderGrid(); show('screen-game');
-  if (state.mode === 'solo') { refreshTurn(); if (state.turn === 'ai') setTimeout(aiTurn, 600); }
+  if (state.mode !== 'duo') { refreshTurn(); if (state.turn === 'ai') setTimeout(aiTurn, 600); }
 });
 $('btn-see').addEventListener('click', showSecret);
 $('btn-restart').addEventListener('click', () => $('confirm').classList.add('visible'));

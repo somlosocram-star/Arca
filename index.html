@@ -178,6 +178,52 @@ body.in-game .ver, body.hide-controls .ver { display: none; }
 .secret-name { font-size: 3rem; font-weight: 600; font-style: italic; line-height: 1.05; margin: .9rem 0 1.6rem; text-align: center; }
 .hint { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); opacity: .7; }
 
+/* ---------- Barra de turno ---------- */
+.bar-info {
+  flex: 0 0 auto; width: 100%; max-width: 480px; margin: 0 auto;
+  padding: .35rem .9rem 0; display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+}
+.turn-banner { color: var(--text); }
+body.duo #btn-ask, body.duo #btn-accuse, body.duo #turn-banner { display: none; }
+body.solo #btn-restart { display: none; }
+body.solo.waiting #btn-ask, body.solo.waiting #btn-accuse { opacity: .3; pointer-events: none; }
+
+/* ---------- Paneles ---------- */
+.panel {
+  position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.72);
+  display: none; align-items: flex-end; justify-content: center;
+}
+.panel.visible { display: flex; }
+.sheet {
+  width: 100%; max-width: 480px; background: var(--panel); border-top: 1px solid var(--line);
+  border-radius: 8px 8px 0 0; padding: 1.1rem .9rem max(1rem, env(safe-area-inset-bottom));
+  max-height: 82vh; display: flex; flex-direction: column;
+}
+.sheet-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: .9rem;
+}
+.list { overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: .35rem; }
+.list-item {
+  font-family: 'IBM Plex Mono', monospace; font-size: .68rem; letter-spacing: .06em;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
+  padding: .75rem .85rem; color: var(--text); text-align: left; cursor: pointer;
+}
+.list-item:active { opacity: .7; }
+.list-item.used { color: var(--muted); opacity: .45; pointer-events: none; }
+.sheet-foot { margin-top: .9rem; display: flex; gap: .6rem; justify-content: center; }
+
+/* Pregunta / respuesta a pantalla centrada */
+.mid { align-items: center; }
+.mid .sheet { border-radius: 8px; margin: 0 1rem; border: 1px solid var(--line); }
+.big-q { font-size: 1.7rem; text-align: center; line-height: 1.2; margin: .3rem 0 1.2rem; }
+.big-a { font-family: 'IBM Plex Mono', monospace; font-size: 2.2rem; font-weight: 700; letter-spacing: .1em; text-align: center; margin-bottom: 1.2rem; }
+.warn { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .12em; color: var(--muted); text-align: center; min-height: 1.1rem; margin-bottom: .5rem; }
+
+/* ---------- Fin ---------- */
+#screen-end .end-verdict { font-size: 2.6rem; font-weight: 600; font-style: italic; text-align: center; margin: 1rem 0 .3rem; }
+#screen-end .end-line { font-family: 'IBM Plex Mono', monospace; font-size: .6rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); text-align: center; line-height: 2; }
+
 /* ---------- Confirmación ---------- */
 #confirm { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.72);
   display: none; align-items: center; justify-content: center; padding: 1.5rem; }
@@ -209,7 +255,8 @@ body.in-game .ver, body.hide-controls .ver { display: none; }
   <div class="title">Arca</div>
   <div class="subtitle">adivina el animal</div>
   <div class="btn-row">
-    <button class="btn" id="btn-new">Nueva partida</button>
+    <button class="btn" id="btn-duo">Dos jugadores</button>
+    <button class="btn btn-secondary" id="btn-solo">Contra la IA</button>
     <button class="btn btn-secondary" id="btn-resume" style="display:none">Continuar</button>
   </div>
 </div>
@@ -224,10 +271,81 @@ body.in-game .ver, body.hide-controls .ver { display: none; }
 <!-- JUEGO -->
 <div id="screen-game" class="screen">
   <div class="grid" id="grid"></div>
+  <div class="bar-info">
+    <span class="head-label turn-banner" id="turn-banner"></span>
+    <span class="head-label" id="head-count">24 en pie</span>
+  </div>
   <div class="game-bar">
     <button class="btn btn-secondary" id="btn-see" style="padding:.5rem .8rem;font-size:.55rem">ver secreto</button>
-    <div class="head-label" id="head-count">24 en pie</div>
+    <button class="btn btn-secondary" id="btn-ask" style="padding:.5rem .8rem;font-size:.55rem">preguntar</button>
+    <button class="btn btn-secondary" id="btn-accuse" style="padding:.5rem .8rem;font-size:.55rem">acusar</button>
     <button class="btn btn-secondary" id="btn-restart" style="padding:.5rem .8rem;font-size:.55rem">nueva</button>
+  </div>
+</div>
+
+<!-- NIVEL -->
+<div id="screen-level" class="screen">
+  <div class="subtitle">nivel de la IA</div>
+  <div class="btn-row">
+    <button class="btn" id="btn-lv-1">Aprendiz</button>
+    <button class="btn btn-secondary" id="btn-lv-2">Maestro</button>
+    <button class="btn btn-secondary" id="btn-lv-back">Volver</button>
+  </div>
+</div>
+
+<!-- FIN -->
+<div id="screen-end" class="screen">
+  <div class="seal">
+    <svg class="ring" viewBox="0 0 108 108" id="end-ring"></svg>
+    <div class="frame"></div>
+    <span class="glyph">A</span>
+  </div>
+  <div class="end-verdict" id="end-verdict">—</div>
+  <div class="end-line" id="end-detail"></div>
+  <div class="btn-row">
+    <button class="btn" id="btn-again">Otra partida</button>
+    <button class="btn btn-secondary" id="btn-home">Inicio</button>
+  </div>
+</div>
+
+<!-- PANEL: elegir pregunta -->
+<div id="panel-ask" class="panel">
+  <div class="sheet">
+    <div class="sheet-title">tu pregunta</div>
+    <div class="list" id="q-list"></div>
+    <div class="sheet-foot"><button class="btn btn-secondary" id="btn-ask-cancel">cerrar</button></div>
+  </div>
+</div>
+
+<!-- PANEL: respuesta de la IA -->
+<div id="panel-answer" class="panel mid">
+  <div class="sheet">
+    <div class="sheet-title" id="answer-who">iris responde</div>
+    <div class="big-q" id="answer-q">—</div>
+    <div class="big-a" id="answer-a">—</div>
+    <div class="sheet-foot"><button class="btn" id="btn-answer-ok">de acuerdo</button></div>
+  </div>
+</div>
+
+<!-- PANEL: la IA pregunta -->
+<div id="panel-aiask" class="panel mid">
+  <div class="sheet">
+    <div class="sheet-title">iris pregunta</div>
+    <div class="big-q" id="aiask-q">—</div>
+    <div class="warn" id="aiask-warn"></div>
+    <div class="sheet-foot">
+      <button class="btn" id="btn-yes">sí</button>
+      <button class="btn" id="btn-no">no</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: acusar -->
+<div id="panel-accuse" class="panel">
+  <div class="sheet">
+    <div class="sheet-title">acusar — si fallas, pierdes</div>
+    <div class="list" id="a-list"></div>
+    <div class="sheet-foot"><button class="btn btn-secondary" id="btn-accuse-cancel">cerrar</button></div>
   </div>
 </div>
 
@@ -242,7 +360,7 @@ body.in-game .ver, body.hide-controls .ver { display: none; }
   </div>
 </div>
 
-<div class="ver mono">v0.2</div>
+<div class="ver mono">v0.3</div>
 
 <script>
 'use strict';
@@ -251,6 +369,25 @@ const ANIMALES = [
   'LEÓN','TIGRE','ELEFANTE','CEBRA','OSO','ZORRO','CABALLO','PERRO',
   'GATO','CONEJO','MURCIÉLAGO','DELFÍN','ÁGUILA','LORO','GALLO','PINGÜINO',
   'CIGÜEÑA','ABEJA','COCODRILO','SERPIENTE','TORTUGA','RANA','TIBURÓN','PULPO'
+];
+
+/* pelo, plumas, vuela, agua, cuatro_patas, cola_larga,
+   rayas_colores, domestico, carnivoro, huevos, grupo, mayor_que_persona */
+const FICHAS = [
+  '100011001011','100011101001','000010000011','100011100011',
+  '100010001001','100011001000','100011010011','100011011010',
+  '100011111000','100010010010','101000001010','000100001011',
+  '011000001100','011001110110','010001010110','010100101110',
+  '011100001110','001000100110','000111001101','000001101100',
+  '000110000100','000110101110','000100001101','000101001100'
+];
+const MATRIZ = FICHAS.map(f => f.split('').map(Number));
+
+const PREGUNTAS = [
+  '¿Tiene pelo?', '¿Tiene plumas?', '¿Vuela?', '¿Vive en el agua?',
+  '¿Tiene cuatro patas?', '¿Tiene cola larga?', '¿Tiene rayas o colores llamativos?',
+  '¿Es un animal doméstico?', '¿Come carne?', '¿Pone huevos?',
+  '¿Vive en grupo?', '¿Es más grande que una persona?'
 ];
 
 const $ = id => document.getElementById(id);
@@ -283,6 +420,7 @@ function buildRing(svg) {
 }
 buildRing($('splash-ring'));
 buildRing($('home-ring'));
+buildRing($('end-ring'));
 
 /* ---------- Estado ---------- */
 let state = null;   // { secret: idx, down: [bool x24] }
@@ -296,15 +434,32 @@ function loadState() {
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || typeof s.secret !== 'number' || !Array.isArray(s.down) || s.down.length !== 24) return null;
+    if (!s.mode) s.mode = 'duo';
+    if (s.mode === 'solo' && (!Array.isArray(s.aiCands) || typeof s.aiSecret !== 'number')) return null;
     return s;
   } catch (e) { return null; }
 }
 
-function newGame() {
-  state = { secret: Math.floor(Math.random() * 24), down: new Array(24).fill(false) };
+function newGame(mode, level) {
+  const mine = Math.floor(Math.random() * 24);
+  state = {
+    mode: mode,
+    secret: mine,
+    down: new Array(24).fill(false)
+  };
+  if (mode === 'solo') {
+    let ai = Math.floor(Math.random() * 24);
+    while (ai === mine) ai = Math.floor(Math.random() * 24);
+    state.level = level;
+    state.aiSecret = ai;
+    state.aiCands = Array.from({ length: 24 }, (_, i) => i);
+    state.asked = new Array(12).fill(false);
+    state.aiAsked = new Array(12).fill(false);
+    state.turn = 'me';
+  }
   saveState();
   renderGrid();
-  showSecret(true);
+  showSecret();
 }
 
 /* ---------- Pantallas ---------- */
@@ -313,13 +468,20 @@ function show(id) {
   $(id).classList.add('visible');
   document.body.classList.toggle('hide-controls', id === 'screen-secret');
   document.body.classList.toggle('in-game', id === 'screen-game');
+  if (state) {
+    document.body.classList.toggle('solo', state.mode === 'solo');
+    document.body.classList.toggle('duo', state.mode !== 'solo');
+  }
 }
 
 function showSecret() {
   $('secret-name').textContent = ANIMALES[state.secret];
   show('screen-secret');
 }
-$('screen-secret').addEventListener('click', () => show('screen-game'));
+$('screen-secret').addEventListener('click', () => {
+  show('screen-game');
+  if (state.mode === 'solo') refreshTurn();
+});
 
 /* ---------- Rejilla ---------- */
 function renderGrid() {
@@ -388,18 +550,159 @@ function setDown(i, down) {
   g.addEventListener('contextmenu', e => e.preventDefault());
 })();
 
+/* ---------- Modo IA ---------- */
+function setWaiting(w) { document.body.classList.toggle('waiting', !!w); }
+
+function refreshTurn() {
+  if (state.mode !== 'solo' || state.over) return;
+  $('turn-banner').textContent = state.turn === 'me' ? 'tu turno' : 'turno de iris';
+  setWaiting(state.turn !== 'me');
+}
+
+/* --- yo pregunto --- */
+$('btn-ask').addEventListener('click', () => {
+  if (state.mode !== 'solo' || state.turn !== 'me') return;
+  $('q-list').innerHTML = PREGUNTAS.map((q, i) =>
+    `<button class="list-item${state.asked[i] ? ' used' : ''}" data-q="${i}">${q}</button>`).join('');
+  $('panel-ask').classList.add('visible');
+});
+$('btn-ask-cancel').addEventListener('click', () => $('panel-ask').classList.remove('visible'));
+
+$('q-list').addEventListener('click', e => {
+  const b = e.target.closest('.list-item');
+  if (!b) return;
+  const q = +b.dataset.q;
+  state.asked[q] = true;
+  saveState();
+  $('panel-ask').classList.remove('visible');
+  $('answer-q').textContent = PREGUNTAS[q];
+  $('answer-a').textContent = MATRIZ[state.aiSecret][q] ? 'SÍ' : 'NO';
+  $('panel-answer').classList.add('visible');
+});
+
+$('btn-answer-ok').addEventListener('click', () => {
+  $('panel-answer').classList.remove('visible');
+  state.turn = 'ai';
+  saveState();
+  refreshTurn();
+  setTimeout(aiTurn, 800);
+});
+
+/* --- turno de la IA --- */
+function aiPickQuestion() {
+  const c = state.aiCands;
+  const opts = [];
+  for (let q = 0; q < 12; q++) {
+    if (state.aiAsked[q]) continue;
+    let yes = 0;
+    for (const i of c) if (MATRIZ[i][q]) yes++;
+    const no = c.length - yes;
+    if (yes === 0 || no === 0) continue;
+    opts.push({ q: q, peor: Math.max(yes, no) });
+  }
+  if (!opts.length) return -1;
+  if (state.level === 'maestro') {
+    const min = Math.min.apply(null, opts.map(o => o.peor));
+    const best = opts.filter(o => o.peor === min);
+    return best[Math.floor(Math.random() * best.length)].q;
+  }
+  // aprendiz: 70% de las veces elige la pregunta peor repartida
+  if (Math.random() < 0.7) {
+    const max = Math.max.apply(null, opts.map(o => o.peor));
+    const peor = opts.filter(o => o.peor === max);
+    return peor[Math.floor(Math.random() * peor.length)].q;
+  }
+  return opts[Math.floor(Math.random() * opts.length)].q;
+}
+
+let pendingQ = -1;
+
+function aiTurn() {
+  if (state.over) return;
+  const c = state.aiCands;
+  const arriesga = state.level === 'aprendiz' && c.length <= 3 && Math.random() < 0.3;
+  if (c.length <= 1 || arriesga) { aiAccuse(); return; }
+  const q = aiPickQuestion();
+  if (q < 0) { aiAccuse(); return; }
+  pendingQ = q;
+  $('aiask-q').textContent = PREGUNTAS[q];
+  $('aiask-warn').textContent = '';
+  $('panel-aiask').classList.add('visible');
+}
+
+function answerAi(yes) {
+  const real = !!MATRIZ[state.secret][pendingQ];
+  if (yes !== real) {
+    $('aiask-warn').textContent = 'eso no cuadra con tu ficha';
+    return;
+  }
+  state.aiAsked[pendingQ] = true;
+  state.aiCands = state.aiCands.filter(i => !!MATRIZ[i][pendingQ] === real);
+  $('panel-aiask').classList.remove('visible');
+  state.turn = 'me';
+  saveState();
+  refreshTurn();
+}
+$('btn-yes').addEventListener('click', () => answerAi(true));
+$('btn-no').addEventListener('click', () => answerAi(false));
+
+function aiAccuse() {
+  const c = state.aiCands.length ? state.aiCands : [Math.floor(Math.random() * 24)];
+  const pick = c[Math.floor(Math.random() * c.length)];
+  const acierta = pick === state.secret;
+  endGame(acierta ? 'ai' : 'me', 'IRIS acusa a ' + ANIMALES[pick] + '.');
+}
+
+/* --- yo acuso --- */
+$('btn-accuse').addEventListener('click', () => {
+  if (state.mode !== 'solo' || state.turn !== 'me') return;
+  const vivos = ANIMALES.map((n, i) => i).filter(i => !state.down[i]);
+  $('a-list').innerHTML = vivos.map(i =>
+    `<button class="list-item" data-a="${i}">${ANIMALES[i]}</button>`).join('');
+  $('panel-accuse').classList.add('visible');
+});
+$('btn-accuse-cancel').addEventListener('click', () => $('panel-accuse').classList.remove('visible'));
+
+$('a-list').addEventListener('click', e => {
+  const b = e.target.closest('.list-item');
+  if (!b) return;
+  const pick = +b.dataset.a;
+  $('panel-accuse').classList.remove('visible');
+  const acierta = pick === state.aiSecret;
+  endGame(acierta ? 'me' : 'ai', 'Acusas a ' + ANIMALES[pick] + '.');
+});
+
+/* --- fin --- */
+function endGame(winner, detalle) {
+  state.over = winner;
+  saveState();
+  $('end-verdict').textContent = winner === 'me' ? 'Ganas' : 'Gana Iris';
+  $('end-detail').innerHTML = detalle + '<br>El animal de Iris era ' + ANIMALES[state.aiSecret] +
+    '.<br>El tuyo era ' + ANIMALES[state.secret] + '.';
+  show('screen-end');
+}
+$('btn-again').addEventListener('click', () => newGame('solo', state.level));
+$('btn-home').addEventListener('click', () => { try { localStorage.removeItem(LS_STATE); } catch (e) {} state = null; $('btn-resume').style.display = 'none'; show('screen-home'); });
+
 /* ---------- Botones ---------- */
-$('btn-new').addEventListener('click', newGame);
-$('btn-resume').addEventListener('click', () => { renderGrid(); show('screen-game'); });
+$('btn-duo').addEventListener('click', () => newGame('duo'));
+$('btn-solo').addEventListener('click', () => show('screen-level'));
+$('btn-lv-1').addEventListener('click', () => newGame('solo', 'aprendiz'));
+$('btn-lv-2').addEventListener('click', () => newGame('solo', 'maestro'));
+$('btn-lv-back').addEventListener('click', () => show('screen-home'));
+$('btn-resume').addEventListener('click', () => {
+  renderGrid(); show('screen-game');
+  if (state.mode === 'solo') { refreshTurn(); if (state.turn === 'ai') setTimeout(aiTurn, 600); }
+});
 $('btn-see').addEventListener('click', showSecret);
 $('btn-restart').addEventListener('click', () => $('confirm').classList.add('visible'));
 $('btn-cancel').addEventListener('click', () => $('confirm').classList.remove('visible'));
-$('btn-confirm').addEventListener('click', () => { $('confirm').classList.remove('visible'); newGame(); });
+$('btn-confirm').addEventListener('click', () => { $('confirm').classList.remove('visible'); newGame(state.mode, state.level); });
 
 /* ---------- Arranque ---------- */
 (function boot() {
   const saved = loadState();
-  if (saved) { state = saved; $('btn-resume').style.display = ''; }
+  if (saved && !saved.over) { state = saved; $('btn-resume').style.display = ''; }
   setTimeout(() => {
     $('splash').classList.add('gone');
     setTimeout(() => { $('splash').style.display = 'none'; }, 520);

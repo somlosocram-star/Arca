@@ -197,6 +197,12 @@ body.trav .rac-label { display: inline; }
   float: right; font-weight: 700; letter-spacing: .18em; color: var(--muted);
 }
 .list-item.poor { opacity: .35; pointer-events: none; }
+.q-split {
+  display: block; margin-top: .35rem; font-size: .5rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted);
+}
+#panel-ask { background: rgba(0,0,0,.45); }
+#panel-ask .sheet { max-height: 58vh; }
 .sheet-note {
   font-family: 'IBM Plex Mono', monospace; font-size: .5rem; letter-spacing: .14em;
   text-transform: uppercase; color: var(--muted); text-align: center; margin-top: .7rem;
@@ -337,7 +343,7 @@ body.trav .rac-label { display: inline; }
     <div class="sheet-title">tu pregunta</div>
     <div class="list" id="q-list"></div>
     <div class="sheet-foot">
-      <button class="btn btn-secondary" id="btn-dump" style="display:none">tirar la mano</button>
+      <button class="btn btn-secondary" id="btn-dump" style="display:none">descansar</button>
       <button class="btn btn-secondary" id="btn-ask-cancel">cerrar</button>
     </div>
     <div class="sheet-note" id="ask-note"></div>
@@ -388,7 +394,7 @@ body.trav .rac-label { display: inline; }
   </div>
 </div>
 
-<div class="ver mono">v0.5</div>
+<div class="ver mono">v0.6</div>
 
 <script>
 'use strict';
@@ -426,6 +432,8 @@ const COSTES = PREGUNTAS.map((_, q) => {
   return m <= 5 ? 1 : (m <= 8 ? 2 : 3);
 });
 const DESPENSA = 9;
+const DESCANSO = 3;    // raciones que recuperas al descansar
+const TOPE_RAC = 12;
 
 function baraja(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -657,12 +665,16 @@ function refreshTurn() {
 $('btn-ask').addEventListener('click', () => {
   if (state.mode === 'duo' || state.turn !== 'me' || state.phase !== 'preguntar') return;
   if (state.mode === 'travesia') {
-    $('q-list').innerHTML = state.hand.map(i =>
-      `<button class="list-item${COSTES[i] > state.rac ? ' poor' : ''}" data-q="${i}">${PREGUNTAS[i]}<span class="cost">${'·'.repeat(COSTES[i])} ${COSTES[i]}</span></button>`).join('');
-    const puede = state.hand.some(i => COSTES[i] <= state.rac);
-    $('btn-dump').style.display = puede ? 'none' : '';
-    $('ask-note').textContent = puede ? 'te quedan ' + state.rac + ' raciones'
-                                      : 'sin raciones para nada de la mano';
+    const vivos = ANIMALES.map((_, i) => i).filter(i => !state.down[i]);
+    $('q-list').innerHTML = state.hand.map(i => {
+      const p = partePor(i, vivos);
+      return `<button class="list-item${COSTES[i] > state.rac ? ' poor' : ''}" data-q="${i}">` +
+             `${PREGUNTAS[i]}<span class="cost">${'·'.repeat(COSTES[i])} ${COSTES[i]}</span>` +
+             `<span class="q-split">sí ${p.si} · no ${p.no}</span></button>`;
+    }).join('');
+    $('btn-dump').style.display = '';
+    $('ask-note').textContent = 'descansar: cambias la mano y ganas ' + DESCANSO +
+      ' raciones, pero pierdes el turno';
   } else {
     $('q-list').innerHTML = PREGUNTAS.map((q, i) =>
       `<button class="list-item${state.asked[i] ? ' used' : ''}" data-q="${i}">${q}</button>`).join('');
@@ -676,6 +688,7 @@ $('btn-dump').addEventListener('click', () => {
   state.disc = state.disc.concat(state.hand);
   state.hand = [];
   for (let i = 0; i < 4; i++) robar('me');
+  state.rac = Math.min(TOPE_RAC, state.rac + DESCANSO);
   $('panel-ask').classList.remove('visible');
   state.turn = 'ai';
   state.phase = 'preguntar';
@@ -778,10 +791,11 @@ function aiTurn() {
   const q = state.mode === 'travesia' ? aiPickCard() : aiPickQuestion();
   if (q < 0) {
     if (state.mode !== 'travesia') { aiAccuse(); return; }
-    // Iris no puede jugar nada: tira la mano y pierde el turno
+    // Iris no puede jugar nada: descansa y pierde el turno
     state.aiDisc = state.aiDisc.concat(state.aiHand);
     state.aiHand = [];
     for (let i = 0; i < 4; i++) robar('ai');
+    state.aiRac = Math.min(TOPE_RAC, state.aiRac + DESCANSO);
     state.turn = 'me'; state.phase = 'preguntar';
     saveState(); refreshTurn();
     return;
@@ -838,7 +852,7 @@ $('btn-mini').addEventListener('click', () => {
 
 /* --- yo acuso --- */
 $('btn-accuse').addEventListener('click', () => {
-  if (state.mode !== 'solo' || state.turn !== 'me') return;
+  if (state.mode === 'duo' || state.turn !== 'me') return;
   const vivos = ANIMALES.map((n, i) => i).filter(i => !state.down[i]);
   $('a-list').innerHTML = vivos.map(i =>
     `<button class="list-item" data-a="${i}">${ANIMALES[i]}</button>`).join('');

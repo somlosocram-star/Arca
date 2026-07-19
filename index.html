@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es" class="pre-dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0b0c">
+<title>Arca</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0b0c;
+  --panel: #141416;
+  --panel-2: #1b1b1f;
+  --line: #2c2c30;
+  --text: #f4f4f2;
+  --muted: #76767c;
+  --accent: #f4f4f2;
+  --grain-opacity: 0.45;
+  --vignette: rgba(0,0,0,0.5);
+  --on-accent: #0b0b0c;
+  --down: #4a4a50;
+}
+body.light {
+  --bg: #f3f2ee;
+  --panel: #e7e6df;
+  --panel-2: #eeede7;
+  --line: #d2d0c6;
+  --text: #17171a;
+  --muted: #8c8b81;
+  --accent: #17171a;
+  --grain-opacity: 0.16;
+  --vignette: rgba(60,58,50,0.10);
+  --on-accent: #f3f2ee;
+  --down: #b9b7ac;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Cormorant Garamond', serif;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+body.light {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,0,0,0.04) 0%, transparent 62%),
+    radial-gradient(ellipse 60% 80% at 50% 100%, rgba(0,0,0,0.03) 0%, transparent 62%);
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: var(--grain-opacity); mix-blend-mode: overlay;
+}
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at center, transparent 52%, var(--vignette) 100%);
+}
+.mono { font-family: 'IBM Plex Mono', monospace; font-feature-settings: "tnum"; }
+
+/* ---------- Sello circular ---------- */
+.seal { position: relative; width: 108px; height: 108px; display: flex; align-items: center; justify-content: center; }
+.seal .ring { position: absolute; inset: 0; animation: spin 24s linear infinite; }
+.seal .ring circle { fill: var(--accent); }
+.seal .glyph { font-size: 2.9rem; font-style: italic; font-weight: 600; line-height: 1; color: var(--text); }
+.seal .frame { position: absolute; inset: 12px; border: 1px solid var(--line); border-radius: 50%; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Splash ---------- */
+#splash {
+  position: fixed; inset: 0; z-index: 60; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .5s ease;
+}
+#splash.gone { opacity: 0; pointer-events: none; }
+
+/* ---------- Pantallas ---------- */
+.screen {
+  position: fixed; inset: 0; z-index: 2;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+}
+.screen.visible { display: flex; }
+
+.title { font-size: 3.4rem; font-weight: 600; letter-spacing: .02em; line-height: 1; margin-top: 1.1rem; }
+.subtitle {
+  font-family: 'IBM Plex Mono', monospace; font-size: .6rem; letter-spacing: .34em;
+  text-transform: uppercase; color: var(--muted); margin-top: .8rem;
+}
+.btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: .68rem; letter-spacing: .22em;
+  text-transform: uppercase; font-weight: 600;
+  background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent);
+  padding: .85rem 1.6rem; border-radius: 3px; cursor: pointer;
+}
+.btn:active { opacity: .78; }
+.btn-secondary { background: transparent; color: var(--muted); border-color: var(--line); }
+.btn-row { display: flex; flex-direction: column; gap: .7rem; margin-top: 2.2rem; align-items: center; }
+.ver { position: fixed; bottom: max(.5rem, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: .5rem; letter-spacing: .2em; color: var(--muted); opacity: .55; z-index: 3; }
+
+/* ---------- Controles flotantes ---------- */
+.corner { position: fixed; top: max(.6rem, env(safe-area-inset-top)); z-index: 20; display: flex; gap: .4rem; }
+.corner.right { right: .7rem; }
+.icon-btn {
+  width: 34px; height: 34px; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 3px; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: .62rem; font-weight: 700;
+}
+.icon-btn:active { opacity: .7; }
+
+/* ---------- Pantalla de juego ---------- */
+#screen-game { justify-content: flex-start; padding: 0; }
+.game-head {
+  flex: 0 0 auto; width: 100%;
+  padding: max(.7rem, env(safe-area-inset-top)) .7rem .5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+}
+.head-label { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .26em; text-transform: uppercase; color: var(--muted); }
+.grid {
+  flex: 1 1 auto; width: 100%; max-width: 480px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(6, 1fr);
+  gap: .4rem; padding: 0 .5rem max(.7rem, env(safe-area-inset-bottom));
+  min-height: 0;
+}
+
+/* Ficha. Dos caras que rotan de forma independiente (evita el parpadeo
+   de preserve-3d + overflow + border-radius en GPUs Android). */
+.tile { position: relative; min-width: 0; min-height: 0; cursor: pointer; }
+.face {
+  position: absolute; inset: 0; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--panel);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .18rem;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  transition: transform .34s cubic-bezier(.4,0,.2,1);
+}
+.face-up   { transform: rotateY(0deg); }
+.face-down { transform: rotateY(180deg); background: transparent; border-style: dashed; }
+.tile.down .face-up   { transform: rotateY(-180deg); }
+.tile.down .face-down { transform: rotateY(0deg); }
+
+.t-seal { position: relative; width: 42%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+.t-seal .t-ring { position: absolute; inset: 0; border: 1px solid var(--line); border-radius: 50%; }
+.t-seal .t-glyph { font-size: 1.35rem; font-style: italic; font-weight: 600; line-height: 1; }
+.t-name {
+  font-family: 'IBM Plex Mono', monospace; font-size: .42rem; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--muted); text-align: center; line-height: 1.2;
+  padding: 0 .1rem; word-break: break-word;
+}
+.face-down .t-glyph, .face-down .t-name { color: var(--down); }
+.face-down .t-ring { border-color: var(--down); border-style: dashed; }
+
+/* ---------- Secreto ---------- */
+#screen-secret { z-index: 40; background: var(--bg); }
+.secret-tag { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); }
+.secret-name { font-size: 3rem; font-weight: 600; font-style: italic; line-height: 1.05; margin: .9rem 0 1.6rem; text-align: center; }
+.hint { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); opacity: .7; }
+
+/* ---------- Confirmación ---------- */
+#confirm { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.72);
+  display: none; align-items: center; justify-content: center; padding: 1.5rem; }
+#confirm.visible { display: flex; }
+.dialog { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1.6rem 1.3rem; max-width: 300px; text-align: center; }
+.dialog p { font-size: 1.15rem; margin-bottom: 1.3rem; }
+.dialog .btn-pair { display: flex; gap: .6rem; justify-content: center; }
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="seal">
+    <svg class="ring" viewBox="0 0 108 108" id="splash-ring"></svg>
+    <div class="frame"></div>
+    <span class="glyph">A</span>
+  </div>
+</div>
+
+<div class="corner right" id="corner-top">
+  <button class="icon-btn" id="theme-btn" aria-label="tema">◐</button>
+</div>
+
+<!-- HOME -->
+<div id="screen-home" class="screen visible">
+  <div class="seal">
+    <svg class="ring" viewBox="0 0 108 108" id="home-ring"></svg>
+    <div class="frame"></div>
+    <span class="glyph">A</span>
+  </div>
+  <div class="title">Arca</div>
+  <div class="subtitle">adivina el animal</div>
+  <div class="btn-row">
+    <button class="btn" id="btn-new">Nueva partida</button>
+    <button class="btn btn-secondary" id="btn-resume" style="display:none">Continuar</button>
+  </div>
+</div>
+
+<!-- SECRETO -->
+<div id="screen-secret" class="screen">
+  <div class="secret-tag">tu animal secreto</div>
+  <div class="secret-name" id="secret-name">—</div>
+  <div class="hint">toca para ocultar</div>
+</div>
+
+<!-- JUEGO -->
+<div id="screen-game" class="screen">
+  <div class="game-head">
+    <button class="btn btn-secondary" id="btn-see" style="padding:.5rem .8rem;font-size:.55rem">ver secreto</button>
+    <div class="head-label" id="head-count">24 en pie</div>
+    <button class="btn btn-secondary" id="btn-restart" style="padding:.5rem .8rem;font-size:.55rem">nueva</button>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- CONFIRMACIÓN -->
+<div id="confirm">
+  <div class="dialog">
+    <p>¿Empezar una partida nueva?</p>
+    <div class="btn-pair">
+      <button class="btn btn-secondary" id="btn-cancel">no</button>
+      <button class="btn" id="btn-confirm">sí</button>
+    </div>
+  </div>
+</div>
+
+<div class="ver mono">v0.1</div>
+
+<script>
+'use strict';
+
+const ANIMALES = [
+  'LEÓN','TIGRE','ELEFANTE','CEBRA','OSO','ZORRO','CABALLO','PERRO',
+  'GATO','CONEJO','MURCIÉLAGO','DELFÍN','ÁGUILA','LORO','GALLO','PINGÜINO',
+  'CIGÜEÑA','ABEJA','COCODRILO','SERPIENTE','TORTUGA','RANA','TIBURÓN','PULPO'
+];
+
+const $ = id => document.getElementById(id);
+const LS_THEME = 'arca_theme';
+const LS_STATE = 'arca_state';
+
+/* ---------- Tema ---------- */
+function applyTheme(light) {
+  document.body.classList.toggle('light', light);
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.setAttribute('content', light ? '#f3f2ee' : '#0b0b0c');
+  try { localStorage.setItem(LS_THEME, light ? 'light' : 'dark'); } catch (e) {}
+}
+(function initTheme() {
+  let saved = 'dark';
+  try { saved = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) {}
+  applyTheme(saved === 'light');
+})();
+$('theme-btn').addEventListener('click', () => applyTheme(!document.body.classList.contains('light')));
+
+/* ---------- Anillo de puntos del sello ---------- */
+function buildRing(svg) {
+  const n = 40, cx = 54, cy = 54, r = 50;
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    s += `<circle cx="${(cx + r * Math.cos(a)).toFixed(2)}" cy="${(cy + r * Math.sin(a)).toFixed(2)}" r="${i % 5 === 0 ? 1.9 : 1}"/>`;
+  }
+  svg.innerHTML = s;
+}
+buildRing($('splash-ring'));
+buildRing($('home-ring'));
+
+/* ---------- Estado ---------- */
+let state = null;   // { secret: idx, down: [bool x24] }
+
+function saveState() {
+  try { localStorage.setItem(LS_STATE, JSON.stringify(state)); } catch (e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_STATE);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || typeof s.secret !== 'number' || !Array.isArray(s.down) || s.down.length !== 24) return null;
+    return s;
+  } catch (e) { return null; }
+}
+
+function newGame() {
+  state = { secret: Math.floor(Math.random() * 24), down: new Array(24).fill(false) };
+  saveState();
+  renderGrid();
+  showSecret(true);
+}
+
+/* ---------- Pantallas ---------- */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('visible'));
+  $(id).classList.add('visible');
+  $('corner-top').style.display = (id === 'screen-secret') ? 'none' : 'flex';
+}
+
+function showSecret() {
+  $('secret-name').textContent = ANIMALES[state.secret];
+  show('screen-secret');
+}
+$('screen-secret').addEventListener('click', () => show('screen-game'));
+
+/* ---------- Rejilla ---------- */
+function renderGrid() {
+  const g = $('grid');
+  g.innerHTML = ANIMALES.map((n, i) => `
+    <div class="tile${state.down[i] ? ' down' : ''}" data-i="${i}">
+      <div class="face face-up">
+        <div class="t-seal"><div class="t-ring"></div><span class="t-glyph">${n[0]}</span></div>
+        <div class="t-name">${n}</div>
+      </div>
+      <div class="face face-down">
+        <div class="t-seal"><div class="t-ring"></div><span class="t-glyph">${n[0]}</span></div>
+        <div class="t-name">${n}</div>
+      </div>
+    </div>`).join('');
+  updateCount();
+}
+
+function updateCount() {
+  const up = state.down.filter(d => !d).length;
+  $('head-count').textContent = up + ' en pie';
+}
+
+function setDown(i, down) {
+  if (state.down[i] === down) return;
+  state.down[i] = down;
+  $('grid').querySelector(`.tile[data-i="${i}"]`).classList.toggle('down', down);
+  updateCount();
+  saveState();
+}
+
+/* Toque corto: abatir. Toque largo (500 ms): levantar.
+   Umbral de 12 px para no confundir con un arrastre. */
+(function bindTiles() {
+  const g = $('grid');
+  let timer = null, startX = 0, startY = 0, idx = -1, longFired = false;
+
+  function clear() { if (timer) { clearTimeout(timer); timer = null; } }
+
+  g.addEventListener('pointerdown', e => {
+    const tile = e.target.closest('.tile');
+    if (!tile) return;
+    idx = +tile.dataset.i;
+    startX = e.clientX; startY = e.clientY; longFired = false;
+    clear();
+    timer = setTimeout(() => {
+      longFired = true;
+      setDown(idx, false);
+      if (navigator.vibrate) { try { navigator.vibrate(18); } catch (err) {} }
+    }, 500);
+  });
+
+  g.addEventListener('pointermove', e => {
+    if (idx < 0) return;
+    if (Math.abs(e.clientX - startX) > 12 || Math.abs(e.clientY - startY) > 12) { clear(); idx = -1; }
+  });
+
+  g.addEventListener('pointerup', e => {
+    clear();
+    if (idx < 0) return;
+    if (!longFired) setDown(idx, true);
+    idx = -1;
+  });
+
+  g.addEventListener('pointercancel', () => { clear(); idx = -1; });
+  g.addEventListener('contextmenu', e => e.preventDefault());
+})();
+
+/* ---------- Botones ---------- */
+$('btn-new').addEventListener('click', newGame);
+$('btn-resume').addEventListener('click', () => { renderGrid(); show('screen-game'); });
+$('btn-see').addEventListener('click', showSecret);
+$('btn-restart').addEventListener('click', () => $('confirm').classList.add('visible'));
+$('btn-cancel').addEventListener('click', () => $('confirm').classList.remove('visible'));
+$('btn-confirm').addEventListener('click', () => { $('confirm').classList.remove('visible'); newGame(); });
+
+/* ---------- Arranque ---------- */
+(function boot() {
+  const saved = loadState();
+  if (saved) { state = saved; $('btn-resume').style.display = ''; }
+  setTimeout(() => {
+    $('splash').classList.add('gone');
+    setTimeout(() => { $('splash').style.display = 'none'; }, 520);
+  }, 1100);
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
